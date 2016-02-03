@@ -6,6 +6,8 @@ Scripts and tools to run Diego's CI builds on Concourse.
 
 1. Make sure the `id_rsa_bosh` keypair in the `keypair` directory matches the `bosh` key in AWS.
 1. Create a Route 53 Hosted Zone for your desired subdomain.
+      * scripts create '*.domain.com'
+      * scripts probably do not create 'bosh/micro.domain.com'
 1. If there aren't already an RSA key and self-signed certificate in your `DEPLOYMENT_DIR/certs/elb-<SOMETHING>.key`, generate them and put them there.  Update the `deploy` script to upload the correct certs.
 1. If you are creating a new environment, and have copied an existing environments deployment directory, review the non-generated stubs (YAML files in the `stubs` directory that don't start with `#GENERATED, NO TOUCHING`) to make sure they make sense for your new environment.  In particular, there are several stubs that reference the environment name that will need to be updated.
 1. Similarly, update the CloudFormation stack name in the `deploy` script to match your environment name.

@@ -4,23 +4,25 @@ set -e
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
-if [ "$1" == "create" ]; then
-  UPDATE_OR_CREATE=create-stack
-elif [ "$1" == "update" ]; then
-  UPDATE_OR_CREATE=update-stack
-else
-  echo "Usage: ./deploy < create | update >"
-  exit 1
-fi
-
 function usage() {
   >&2 echo "    Usage:
-    $0 <create|update> <deployment_dir>
+    $0 <create|update|skip> <deployment_dir>
     deployment_dir:
       Private deployment directory containg your keys.
 "
   exit 1
 }
+
+if [ "$1" == "create" ]; then
+  UPDATE_OR_CREATE=create-stack
+elif [ "$1" == "update" ]; then
+  UPDATE_OR_CREATE=update-stack
+elif [ "$1" == "skip" ]; then
+  UPDATE_OR_CREATE="skip"
+else
+  usage
+  exit 1
+fi
 
 deployment_dir=$2
 
@@ -71,12 +73,14 @@ spiff merge \
   > stubs/infrastructure/cloudformation.json
 
 # deploy infrastructure
-aws cloudformation $UPDATE_OR_CREATE \
-  --stack-name cf-diego-stack \
-  --template-body file://stubs/infrastructure/cloudformation.json
+if [ $UPDATE_OR_CREATE != "skip" ]; then
+  aws cloudformation $UPDATE_OR_CREATE \
+    --stack-name cf-diego-stack \
+    --template-body file://stubs/infrastructure/cloudformation.json
 
-# ensure that create or update was successful to aws
-boosh watch --name cf-diego-stack
+  # ensure that create or update was successful to aws
+  boosh watch --name cf-diego-stack
+fi
 
 # generate AWS resources stub for shared purposes
 cat > stubs/aws-resources.yml <<EOF
