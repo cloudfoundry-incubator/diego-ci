@@ -1,33 +1,10 @@
 # Diego CI
 
-Scripts and tools to run Diego's CI builds on Concourse.
+This repository contains tools to deploy Diego to AWS environments as well as our concourse scripts.
 
-# AWS Requirments
+## Deploying CF and Diego to AWS
 
-1. Create a local directory which will be used to store private keys. From here on, we will refer to
-   this direcotry as `DEPLOYMENT_DIR`.
-
-1. <span id="create-aws-keypair">Create an AWS keypair for yout bosh director</span>
-  a.  From your aws EC2 page click on the `Key Pairs` tab
-  b.  Select the `create keypair` button at the top of the page
-  c.  When prompted for the key name, enter `bosh`
-  d.  Move the downloaded `bosh.pem` key to `DEPLOYMENT_DIR/keypair/` and rename the key to `id_rsa_bosh` 
-  
-1. <span id="create-route-53">Create Route 53 Hosted Zone</span>
-  a.  From the aws console homepage click on `Route 53`
-  b.  Select `hosted zones` from the left sidebar
-  c.  Click the `Create Hosted Zone` button
-  d.  Fill in the domain name of your cloud foundry deployment
-  Note: The domain name will be the root path of all apps deployed on your cloud foundry.
-  Ex:
-  ```
-    domain = foo.bar.com
-    app name = `hello-world`. This will create a default route of hello-world.domain
-
-    http://hello-world.foo.bar.com will be the root url address of your application
-   ```
-
-### System Requirements
+### Local System Requirements
 
 * [Go 1.4.3](https://github.com/kr/godep.git)
 * [godep](https://github.com/tools/godep)
@@ -55,9 +32,36 @@ gem install bosh_cli
 ```
 * [Bosh init](https://bosh.io/docs/install-bosh-init.html)
 
-### Setup
+### AWS Requirements
 
-You will need to create a local directory containing your private keys and passwords with the following format:
+1. Create a local directory which will be used to store your deployment-specific credentials. From here on, we will refer to
+   this directory as `DEPLOYMENT_DIR`.
+
+1. <span id="create-aws-keypair">Create an AWS keypair for yout bosh director</span>
+  1.  From your AWS EC2 page click on the `Key Pairs` tab
+  2.  Select the `create keypair` button at the top of the page
+  3.  When prompted for the key name, enter `bosh`
+  4.  Move the downloaded `bosh.pem` key to `DEPLOYMENT_DIR/keypair/` and rename the key to `id_rsa_bosh` 
+  
+1. <span id="create-route-53">Create Route 53 Hosted Zone</span>
+  1.  From the aws console homepage click on `Route 53`
+  2.  Select `hosted zones` from the left sidebar
+  3.  Click the `Create Hosted Zone` button
+  4.  Fill in the domain name for your cloud foundry deployment
+  
+  By default, the domain name for your hosted zone will be the root domain of all apps deployed to your cloud foundry instance.
+ 
+  For Example:
+   ```
+   domain = foo.bar.com
+   app name = `hello-world`. This will create a default route of hello-world.domain
+
+   http://hello-world.foo.bar.com will be the root url address of your application
+   ```
+
+### System Setup
+
+Your DEPLOYMENT_DIR needs to have the following the following format:
 ```
 DEPLOYMENT_DIR
 |-(bootstrap_environment)
