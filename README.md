@@ -51,7 +51,7 @@ gem install bosh_cli
   
   By default, the domain name for your hosted zone will be the root domain of all apps deployed to your cloud foundry instance.
  
-  For Example:
+  eg:
    ```
    domain = foo.bar.com
    app name = `hello-world`. This will create a default route of hello-world.domain
@@ -82,11 +82,11 @@ DEPLOYMENT_DIR
 
 #### bootstrap_environment
 
-This file contains exportable environment variables your aws default region and access/secret keys.
+This script should export your aws default region and access/secret keys as environment variables.
 The `AWS_ACCESS_KEY_ID` key must match your aws IAM user's access key id and the `AWS_SECRET_ACCESS_KEY`
 is the private key generated during the IAM user creation.
  
-Ex:
+eg:
 ```
 export AWS_DEFAULT_REGION=us-east-1
 export AWS_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxx
@@ -111,7 +111,7 @@ openssl x509 -req -in elb-cfrouter.csr -signkey elb-cfrouter.key -out elb-cfrout
 
 The `domain.yml` should be assigned to the domain generated in the [create route 53 hosted zone](#create-route-53)
 
-Ex:
+eg:
 ```
 ---
 domain: <your-domain.com>
@@ -121,7 +121,7 @@ domain: <your-domain.com>
 
 This yaml file defines the 3 zones that will host your Cloud Foundry Deployment.
 
-Ex:
+eg:
 ```
 meta:
   availability_zones:
@@ -132,14 +132,14 @@ meta:
 
 Note: These zones could become restricted by AWS. If at some point during the deploy script and you see an error
 with the following message: "Value (us-east-1b) for parameter availabilityZone is invalid. Subnets can currently
-only be created in the following availability zones: us-east-1d, us-east-1b, us-east-1a, us-east-1e." You will need
-to update this fille with allowd values.
+only be created in the following availability zones: us-east-1d, us-east-1b, us-east-1a, us-east-1e," you will need
+to update this file with acceptable values.
 
 #### stubs/bosh-init/releases.yml
 
-The bosh-init's `releases.yml` requires specific `bosh` and `bosh-aws-cpi` proprties and can be seen in the following example.
+To deploy the bosh director, bosh-init's `releases.yml` must specify `bosh` and `bosh-aws-cpi` releases by url and sha1.
 
-Ex:
+eg:
 ```
 releases:
   - name: bosh
@@ -150,29 +150,26 @@ releases:
     sha1: bde15dfb3e4f1b9e9693c810fa539858db2bc298
 ```
  
-The properties for `bosh` can be found [here](http://bosh.io/releases/github.com/cloudfoundry/bosh?all=1) and the properties 
-can be found [here](http://bosh.io/releases/github.com/cloudfoundry-incubator/bosh-aws-cpi-release?all=1).   
+Releases for `bosh` can be found [here](http://bosh.io/releases/github.com/cloudfoundry/bosh?all=1) 
+Releases for `bosh-aws-cpi` can be found [here](http://bosh.io/releases/github.com/cloudfoundry-incubator/bosh-aws-cpi-release?all=1).   
 
 #### stubs/bosh-init/users.yml
 
-This yaml file defines the admin user to be created for your bosh director with admin privlages. In this file you
-are able to define any number of users that you want.
+This file defines the admin users for your bosh director.
 
-Ex:
+eg:
 ```
 bosh-init:
   users:
     - {name: admin, password: YOUR_PASSWORD}
-    - {name: second_admin, password: YOUR_SECOND_PASSWORD} # this user on anny additional user are not required
 ```
 
 #### stubs/bosh-init/stemcell.yml
 
-Stemcell.yml defines which stemcell to use on the bosh director. The stemcells can be found
-[here](http://bosh.io/stemcells/bosh-aws-xen-ubuntu-trusty-go_agent) and formatted to the 
-following example.
+Stemcell.yml defines which stemcell to use on the bosh director. Stemcells can be found
+[here](http://bosh.io/stemcells/bosh-aws-xen-ubuntu-trusty-go_agent) 
 
-Ex:
+eg:
 ```
 stemcell:
   url: https://bosh.io/d/stemcells/bosh-aws-xen-hvm-ubuntu-trusty-go_agent?v=3091
@@ -190,7 +187,7 @@ runs of this script, you will only want to provide `update` if any stubs under D
 change, or there was an update to this repository. Otherwise you will want to run the script with `skip` so
 that no changes are applid to the AWS environment.
 
-The second parameter is you DEPLOYMENT_DIR and must be structured as the image above. During our deployment process
+The second parameter is your DEPLOYMENT_DIR and must be structured as the image above. During our deployment process
 we will generate a few additional stubs and they will include the line "GENERATED NO TOUCHING" at the top of the files.
 
 Outputs:
