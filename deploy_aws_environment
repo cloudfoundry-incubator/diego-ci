@@ -33,8 +33,7 @@ fi
 command -v aws >/dev/null || { echo "aws is required"; exit 1; }
 command -v jq >/dev/null || { echo "jq is required"; exit 1; }
 command -v spiff >/dev/null || { echo "spiff is required"; exit 1; }
-# command -v bosh-init >/dev/null || { echo "bosh-init is required"; exit 1; }
-# command -v openssl >/dev/null || { echo "openssl is required"; exit 1; }
+command -v bosh-init >/dev/null || { echo "bosh-init is required"; exit 1; }
 
 set -x 
 
@@ -94,13 +93,14 @@ cat > deployments/bosh-init/bosh-init.yml <<EOF
 EOF
 
 spiff merge \
-  templates/bosh-init/bosh-init.yml \
-  templates/bosh-init/bosh-init-internal.yml \
+  $SCRIPT_DIR/templates/bosh-init/bosh-init.yml \
+  $SCRIPT_DIR/templates/bosh-init/bosh-init-internal.yml \
   stubs/aws-resources.yml \
+  stubs/bosh-init/*.yml \
   >> deployments/bosh-init/bosh-init.yml
 
 bosh-init deploy deployments/bosh-init/bosh-init.yml
-bosh -n target `cat stubs/aws-resources.yml | grep Micro | awk '{ gsub(/"/, "", $NF); print $NF }'`
+bosh -n target `cat stubs/aws-resources.yml | grep BoshInit | awk '{ gsub(/"/, "", $NF); print $NF }'`
 
 # generate director uuid stub for template to create deployment stub
 cat > stubs/director-uuid.yml <<EOF
@@ -109,33 +109,15 @@ cat > stubs/director-uuid.yml <<EOF
 director_uuid: $(bosh status --uuid | tr -d '\n')
 EOF
 
-# generate domain stub
-cat > stubs/cf/domain.yml <<EOF
-# GENERATED, NO TOUCHING
-EOF
-
-spiff merge \
-  templates/cf/domain.yml \
-  templates/cf/domain-internal.yml \
-  stubs/domain.yml \
-  >> stubs/cf/domain.yml
-
 # generate deployment stub
 cat > stubs/cf/aws.yml <<EOF
 # GENERATED, NO TOUCHING
 EOF
 
 spiff merge \
-  templates/cf/aws.yml \
-  templates/cf/aws-internal.yml \
+  $SCRIPT_DIR/templates/cf/aws.yml \
+  $SCRIPT_DIR/templates/cf/aws-internal.yml \
   stubs/aws-resources.yml \
   >> stubs/cf/aws.yml
-
-spiff merge \
-  templates/datadog-firehose-nozzle/nozzle.yml \
-  templates/datadog-firehose-nozzle/nozzle-internal.yml \
-  stubs/aws-resources.yml \
-  stubs/director-uuid.yml \
-  > stubs/datadog-firehose-nozzle/nozzle.yml
 
 popd
