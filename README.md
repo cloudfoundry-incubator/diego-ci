@@ -37,13 +37,13 @@ gem install bosh_cli
 1. Create a local directory which will be used to store your deployment-specific credentials. From here on, we will refer to
    this directory as `DEPLOYMENT_DIR`.
 
-1. <span id="create-aws-keypair">Create an AWS keypair for yout bosh director</span>
+1. Create an AWS keypair for yout bosh director
   1.  From your AWS EC2 page click on the `Key Pairs` tab
   2.  Select the `create keypair` button at the top of the page
   3.  When prompted for the key name, enter `bosh`
   4.  Move the downloaded `bosh.pem` key to `DEPLOYMENT_DIR/keypair/` and rename the key to `id_rsa_bosh` 
   
-1. <span id="create-route-53">Create Route 53 Hosted Zone</span>
+1. Create Route 53 Hosted Zone
   1.  From the aws console homepage click on `Route 53`
   2.  Select `hosted zones` from the left sidebar
   3.  Click the `Create Hosted Zone` button
@@ -95,7 +95,7 @@ export AWS_SECRET_ACCESS_KEY='xxxxxxxxxxxxxxxxxxxxxx'
 
 #### keypair/id_rsa_bosh
 
-This is a private key pair generated for our BOSH vm.  Please refer above to [creating an AWS keypair for your Bosh director](#create-aws-keypair).
+This is the private key pair we generated for our BOSH director when we [created an AWS keypair](#aws-requirements).
 
 #### certs/elb-cfrouter.key && certs/elb-cfrouter.pem
 An SSL certificate for the domain where Cloud Foundry will be accessible is required. If you do not provide a certificate,
@@ -109,7 +109,7 @@ openssl x509 -req -in elb-cfrouter.csr -signkey elb-cfrouter.key -out elb-cfrout
 
 #### stubs/domain.yml
 
-The `domain.yml` should be assigned to the domain generated in the [create route 53 hosted zone](#create-route-53)
+The `domain.yml` should be assigned to the domain we generated when we [created a route 53 hosted zone](#aws-requirements).
 
 eg:
 ```
@@ -130,7 +130,7 @@ meta:
     - us-east-1d
 ``` 
 
-Note: These zones could become restricted by AWS. If at some point during the deploy script and you see an error
+Note: These zones could become restricted by AWS. If at some point during the `deploy_aws_cli` script and you see an error
 with the following message: "Value (us-east-1b) for parameter availabilityZone is invalid. Subnets can currently
 only be created in the following availability zones: us-east-1d, us-east-1b, us-east-1a, us-east-1e," you will need
 to update this file with acceptable values.
@@ -150,7 +150,7 @@ releases:
     sha1: bde15dfb3e4f1b9e9693c810fa539858db2bc298
 ```
  
-Releases for `bosh` can be found [here](http://bosh.io/releases/github.com/cloudfoundry/bosh?all=1) 
+Releases for `bosh` can be found [here](http://bosh.io/releases/github.com/cloudfoundry/bosh?all=1).
 Releases for `bosh-aws-cpi` can be found [here](http://bosh.io/releases/github.com/cloudfoundry-incubator/bosh-aws-cpi-release?all=1).   
 
 #### stubs/bosh-init/users.yml
@@ -167,7 +167,7 @@ bosh-init:
 #### stubs/bosh-init/stemcell.yml
 
 Stemcell.yml defines which stemcell to use on the bosh director. Stemcells can be found
-[here](http://bosh.io/stemcells/bosh-aws-xen-ubuntu-trusty-go_agent) 
+[here](http://bosh.io/stemcells/bosh-aws-xen-ubuntu-trusty-go_agent), and must be specified by their url and sha1.
 
 eg:
 ```
