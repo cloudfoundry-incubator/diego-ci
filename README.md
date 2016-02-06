@@ -181,60 +181,51 @@ stemcell:
 To create the AWS environment and a couple of VMs essential to the Cloud Foundry infrastructure,
 you will need to run `./deploy_aws_environment create DEPLOYMENT_DIR` from this repository.
 
-The first argument can be one of: create, update, skip. The dirst time our script runs, passing create
-will dynamically create an AWS Cloud Formation Stack based off of a few of the provided stubs. On subsequent
-runs of this script, you will only want to provide `update` if any stubs under DEPLOYMENT_DIR/stubs/infrastructure
-change, or there was an update to this repository. Otherwise you will want to run the script with `skip` so
-that no changes are applid to the AWS environment.
+This script can be asked to `create`, `update`, or `skip` our Cloud Foundry AWS environment. The first time we run this, we will specify `create` to spin up an AWS Cloud Formation Stack based off of the stubs we filled out above. Subsequently, we will only want to provide `update` if we change stubs under DEPLOYMENT_DIR/stubs/infrastructure or there was an update to this repository. Otherwise we will want to run the script with `skip` so that no unnecessary changes are applied to the AWS environment.
 
-The second parameter is your DEPLOYMENT_DIR and must be structured as the image above. During our deployment process
-we will generate a few additional stubs and they will include the line "GENERATED NO TOUCHING" at the top of the files.
+The second parameter is your DEPLOYMENT_DIR and must be structured as defined above. During our deployment process
+we will generate a few additional stubs that include the line "GENERATED: NO TOUCHING".
 
 Outputs:
 ```
 deployment_dir
 |-stubs
-| |-(directort-uuid.yml)
-| |-(aws-resources.yml)
+| |-(directort-uuid.yml) # the bosh director's unique id
+| |-(aws-resources.yml)  # general metadata about our cloudformation deployment
 | |-cf
-| | |-(aws.yml)
+| | |-(aws.yml) # networks, zones, s3 buckets for our CF deployment
 | |-infrastructure
-|   |-(certificates.yml)
-|   |-(cloudformation.json)
+|   |-(certificates.yml) # for our aws-provided elb
+|   |-(cloudformation.json) # aws' deployed cloudformation.json
 |-deployments
 | |-bosh-init
-|   |-(bosh-init.yml)
+|   |-(bosh-init.yml) # bosh director deployment
 ```
 
 # Deploying CF
 
-To deploy Cloud Foudry against your newly created AWS environment we need to generate a manifest for our deployment.
-The instructions for full manifest genration can be found [here](http://docs.cloudfoundry.org/deploying/common/create_a_manifest.html),
-but the part we are most concerned with is "Create a Deployment Manifest Stub" as we already have a `director-uuid.yml` stub
-generated as part of our script output.
+To deploy Cloud Foundry against our newly created AWS environment we need to generate a manifest for our deployment.
+The instructions for full manifest generation can be found [here](http://docs.cloudfoundry.org/deploying/common/create_a_manifest.html),
+but the part we are most concerned with is the section "Create a Deployment Manifest Stub" as the `./deploy_aws_environment` script generated `director-uuid.yml` for us.
 
 We need to create a stub which looks like the one from the Cloud Foundry Documentation
-[here](http://docs.cloudfoundry.org/deploying/aws/cf-stub.html) with a few minor tweaks. Not to fret thought,
-after creating our AWS environment from the step above we should have a generated `DEPLOYMENT_DIR/stubs/cf/aws.yml`
-which can be used as a starting point for generating a similar stub. This stubhas some additional properties which
-can be used to deploy CF across 3 zones insted of the 2 as shown in the Cloud Foundry Docs. Don't worry about that
-extra information, just ensure that you provide all of the missing fields.
+[here](http://docs.cloudfoundry.org/deploying/aws/cf-stub.html) with a few minor tweaks. Not to fret though, creating our AWS environment above should have generated a `DEPLOYMENT_DIR/stubs/cf/aws.yml`
+that can be used as a starting point for generating a diego-compatible stub. This stub has some additional properties that
+can be used to deploy CF across 3 zones instead of the 2 shown in the Cloud Foundry Docs. Don't worry about that
+extra information, just follow along with the Cloud Foundry [editing instructions](http://docs.cloudfoundry.org/deploying/aws/cf-stub.html#editing) and fill in any properties that aren't already specified in your generated cf/aws.yml stub.
 
-Lastly, default manifest generation will create/remove some additional VMs and unneeded properties such as the DEAs
-when deploying diego. To correct these issues we can use the provided cf stub under `stubs/cf/diego.yml` when generating
-the manifest.
+Default manifest generation won't create some VMs and properties that Diego depends on and leave around some unnecessary legacy VMs and properties that Diego doesn't need. To correct this we can use the provided cf stub under `./stubs/cf/diego.yml` when generating our Cloud Foundry manifest.
 
-After following the instructions to generate the stub and download the cf-release direcotry, we can run
-the following command from this directory to generate our CF manifest:
+After following the instructions to generate a `cf/aws.yml` stub and downloading the cf-release directory, we can run
+the following command inside our diego-ci repository to generate our Cloud Foundry manifest:
 ```
-CF-RELEASE_DIRECTORY/scripts/generate_deployment_manifest aws \
+spiff merge CF-RELEASE_DIRECTORY/scripts/generate_deployment_manifest aws \
 DEPLOYMENT_DIR/stubs/director_uuid.yml \
 DEPLOYMENT_DIR/stubs/cf/aws.yml ./stubs/cf/diego.yml \
 > DEPLOYMENT_DIR/deployments/cf.yml
 ```
 
-From here following the [deploy](http://docs.cloudfoundry.org/deploying/common/deploy.html) steps should be the only thing
-left to do. Just remember to use our generated deployment manifest with the command `bosh deployment DEPLOYMENT_DIR/deployment/cf.yml`.
+From here, all we need to do is [deploy](http://docs.cloudfoundry.org/deploying/common/deploy.html). Just remember to use our generated deployment manifest with the command `bosh deployment DEPLOYMENT_DIR/deployment/cf.yml`.
 
 # Deploying Diego
 
