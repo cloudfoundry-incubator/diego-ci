@@ -5,6 +5,8 @@ meta:
     z2: (( Resources.SubnetAvailabilityZone.CFZ2 ))
     z3: (( Resources.SubnetAvailabilityZone.CFZ3 ))
 
+director_uuid: (( merge ))
+
 networks:
   - name: cf1
     subnets:
@@ -64,8 +66,15 @@ jobs:
 
 properties:
   # needed by cf-release
+  domain: (( merge ))
+  system_domain: (( properties.domain ))
+  app_domains:
+    - (( properties.domain ))
+
   template_only:
     aws:
+      access_key_id: (( AccessKeyID ))
+      secret_access_key: (( SecretAccessKey ))
       subnet_ids:
         cf1: (( Resources.Subnet.CFZ1 ))
         cf2: (( Resources.Subnet.CFZ2 ))
@@ -95,4 +104,5 @@ properties:
     address: (( jobs.postgres_z1.networks.cf1.static_ips.[0] ))
 
 Resources: (( merge ))
-
+AccessKeyID: (( merge ))
+SecretAccessKey: (( merge ))

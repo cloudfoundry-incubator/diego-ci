@@ -21,8 +21,5 @@ jobs:
     instances: 1
 
 properties:
-  consul:
-    require_ssl: false
-
   cc:
     default_to_diego_backend: true

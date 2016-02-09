@@ -35,7 +35,7 @@ command -v jq >/dev/null || { echo "jq is required"; exit 1; }
 command -v spiff >/dev/null || { echo "spiff is required"; exit 1; }
 command -v bosh-init >/dev/null || { echo "bosh-init is required"; exit 1; }
 
-set -x 
+set -x
 
 pushd ${deployment_dir}
 
@@ -110,14 +110,14 @@ director_uuid: $(bosh status --uuid | tr -d '\n')
 EOF
 
 # generate deployment stub
-cat > stubs/cf/aws.yml <<EOF
-# GENERATED, NO TOUCHING
-EOF
+touch stubs/cf/aws.yml
 
 spiff merge \
   $SCRIPT_DIR/templates/cf/aws.yml \
   $SCRIPT_DIR/templates/cf/aws-internal.yml \
   stubs/aws-resources.yml \
+  stubs/domain.yml \
+  stubs/director-uuid.yml \
   >> stubs/cf/aws.yml
 
 popd

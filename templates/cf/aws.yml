@@ -5,6 +5,8 @@ meta:
     z2: (( merge ))
     z3: (( merge ))
 
+director_uuid: (( merge ))
+
 networks:
   - name: cf1
     type: manual
@@ -67,8 +69,16 @@ jobs:
 
 properties:
   # needed by cf-release
+  domain: (( merge ))
+  system_domain: (( merge ))
+  system_domain_organization: nil
+  app_domains:
+    - (( merge ))
+
   template_only:
     aws:
+      access_key_id: (( merge ))
+      secret_access_key: (( merge ))
       subnet_ids:
         cf1: (( merge ))
         cf2: (( merge ))
