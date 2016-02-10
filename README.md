@@ -243,7 +243,7 @@ After following the instructions to generate a `cf/aws.yml` stub and downloading
 the following command inside the diego-ci repository to generate the Cloud Foundry manifest:
 ```
 CF_RELEASE_DIRECTORY/scripts/generate_deployment_manifest aws \
-DEPLOYMENT_DIR/stubs/director_uuid.yml \
+DEPLOYMENT_DIR/stubs/director-uuid.yml \
 DEPLOYMENT_DIR/stubs/cf/aws.yml DEPLOYMENT_DIR/stubs/cf/diego.yml \
 > DEPLOYMENT_DIR/deployments/cf.yml
 ```
