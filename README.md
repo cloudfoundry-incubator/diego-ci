@@ -244,7 +244,8 @@ the following command **inside this repository** to generate the Cloud Foundry m
 ```
 CF_RELEASE_DIRECTORY/scripts/generate_deployment_manifest aws \
 DEPLOYMENT_DIR/stubs/director-uuid.yml \
-DEPLOYMENT_DIR/stubs/cf/aws.yml ./stubs/cf/diego.yml \
+./stubs/cf/diego.yml \
+DEPLOYMENT_DIR/stubs/cf/aws.yml \
 > DEPLOYMENT_DIR/deployments/cf.yml
 ```
 
