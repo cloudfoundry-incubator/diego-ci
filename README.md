@@ -243,11 +243,12 @@ Don't worry about that extra information, just follow the Cloud Foundry
 Cloud Foundry Documention manifest generation doesn't create some VMs and properties that Diego depends on It also includes some unnecessary VMs and properties that Diego doesn't need. To correct this, the provided cf stub `./stubs/cf/diego.yml` is used when generating the Cloud Foundry manifest.
 
 After following the instructions to generate a `cf/aws.yml` stub and downloading the cf-release directory, run
-the following command inside the diego-ci repository to generate the Cloud Foundry manifest:
+the following command **inside this repository** to generate the Cloud Foundry manifest:
 ```
 CF_RELEASE_DIRECTORY/scripts/generate_deployment_manifest aws \
-DEPLOYMENT_DIR/stubs/director_uuid.yml \
-DEPLOYMENT_DIR/stubs/cf/aws.yml ./stubs/cf/diego.yml \
+DEPLOYMENT_DIR/stubs/director-uuid.yml \
+./stubs/cf/diego.yml \
+DEPLOYMENT_DIR/stubs/cf/aws.yml \
 > DEPLOYMENT_DIR/deployments/cf.yml
 ```
 
