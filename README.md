@@ -230,9 +230,9 @@ DEPLOYMENT_DIR
 #### Clone `cf-release`
 
 Clone [cf-release](https://github.com/cloudfoundry/cf-release) to your local system. This directory will be
-refered to as `CF_RELEASE_DIRECTORY`.
+refered to as `CF_RELEASE_DIR`.
 
-#### Generate Manifest
+#### Generate Cloud Foundry Manifest
 
 To deploy Cloud Foundry, you need a stub similar to the one from the [Cloud Foundry Documentation](http://docs.cloudfoundry.org/deploying/aws/cf-stub.html).
 The generated stub `DEPLOYMENT_DIR/stubs/cf/aws.yml` already has a number of these properties filled out for you. However, the generated stub has some
@@ -245,14 +245,14 @@ Cloud Foundry Documention manifest generation doesn't create some VMs and proper
 After following the instructions to generate a `cf/aws.yml` stub and downloading the cf-release directory, run
 the following command **inside this repository** to generate the Cloud Foundry manifest:
 ```
-CF_RELEASE_DIRECTORY/scripts/generate_deployment_manifest aws \
-DEPLOYMENT_DIR/stubs/director-uuid.yml \
+$CF_RELEASE_DIR/scripts/generate_deployment_manifest aws \
+$DEPLOYMENT_DIR/stubs/director-uuid.yml \
 ./stubs/cf/diego.yml \
-DEPLOYMENT_DIR/stubs/cf/aws.yml \
-> DEPLOYMENT_DIR/deployments/cf.yml
+$DEPLOYMENT_DIR/stubs/cf/aws.yml \
+> $DEPLOYMENT_DIR/deployments/cf.yml
 ```
 
-### Finally Actually Deploy
+### Finally actually deploy
 
 Login to BOSH with the following command:
 ```
@@ -262,7 +262,7 @@ When prompted for the username and password, they are the credentials set in the
 
 Set the deployment manifest with the following command:
 ```
-bosh deployment DEPLOYMENT_DIR/deployments/cf.yml
+bosh deployment $DEPLOYMENT_DIR/deployments/cf.yml
 ```
 
 From here, follow the documentation on [deploying a Cloud Foundry with BOSH](http://docs.cloudfoundry.org/deploying/common/deploy.html). Note that the deployment
