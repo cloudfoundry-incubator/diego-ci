@@ -37,7 +37,7 @@ gem install bosh_cli
 1. Create a local directory which will be used to store your deployment-specific credentials. From here on,
    this directory will be refered to as `DEPLOYMENT_DIR`.
 
-1. Create IAM User
+1. Create an IAM User
   1.  From the AWS console homepage, click on `Identity & Access Management`
   2.  Click on `Users` link
   3.  Click on the button `Create New Users`
@@ -45,14 +45,15 @@ gem install bosh_cli
   5.  Make sure that the `Generate an access key for each user` checkbox is checked and click `Create`
   6.  Click `Download Credentials` at the bottom of the screen.
 
-1. Create an AWS keypair for yout bosh director
-  1.  From your AWS EC2 page click on the `Key Pairs` link
-  2.  Click the `Create Key Pair` button at the top of the page
-  3.  When prompted for the key name, enter `bosh`
-  4.  Move the downloaded `bosh.pem` key to `DEPLOYMENT_DIR/keypair/` and rename the key to `id_rsa_bosh`
+1. Create an AWS key pair for your bosh director
+  1.  From the AWS console homepage, click on `EC2`
+  2.  Click on the `Key Pairs` link
+  3.  Click the `Create Key Pair` button at the top of the page
+  4.  When prompted for the key name, enter `bosh`
+  5.  Move the downloaded `bosh.pem` key to `DEPLOYMENT_DIR/keypair/` and rename the key to `id_rsa_bosh`
 
 1. Create Route 53 Hosted Zone
-  1.  From the aws console homepage, click on `Route 53`
+  1.  From the AWS console homepage, click on `Route 53`
   2.  Select `Hosted zones` from the left sidebar
   3.  Click the `Create Hosted Zone` button
   4.  Fill in the domain name for your cloud foundry deployment
@@ -69,7 +70,7 @@ gem install bosh_cli
 
 ### System Setup
 
-The `DEPLOYMENT_DIR` needs to have the following the following format. Each of the files is further explained below.
+The `DEPLOYMENT_DIR` needs to have the following the following format. Each of the files and how to crate them is explained below.
 ```
 DEPLOYMENT_DIR
 |-(bootstrap_environment)
@@ -88,9 +89,9 @@ DEPLOYMENT_DIR
 |   |-(stemcell.yml)
 ```
 
-#### bootstrap_environment
+#### `bootstrap_environment`
 
-This script exports your aws default region and access/secret keys as environment variables.
+This script exports your AWS default region and access/secret keys as environment variables.
 The `AWS_ACCESS_KEY_ID` key must match the AWS IAM user's access key id and the `AWS_SECRET_ACCESS_KEY`
 is the private key generated during the [IAM user creation](#aws-requirements).
 
@@ -101,25 +102,24 @@ export AWS_ACCESS_KEY_ID=xxxxxxxxxxxxxxxxxxx
 export AWS_SECRET_ACCESS_KEY='xxxxxxxxxxxxxxxxxxxxxx'
 ```
 
-#### keypair/id_rsa_bosh
+#### `keypair/id_rsa_bosh`
 
 This is the private key pair generated for the BOSH director when the [AWS keypair](#aws-requirements) was created.
 
-#### certs/elb-cfrouter.key && certs/elb-cfrouter.pem
-An SSL certificate for the domain where Cloud Foundry will be accessible is required. If you do not already provide a certificate,
-you can generate a self signed cert following the commands below:
+#### `certs/elb-cfrouter.key` && `certs/elb-cfrouter.pem`
+An SSL certificate is required for the domain where Cloud Foundry will be accessible. If you do not already provide a certificate, you can generate a self signed cert following the commands below:
 
 ```
 openssl genrsa -out elb-cfrouter.key 2048
 openssl req -new -key elb-cfrouter.key -out elb-cfrouter.csr
 ```
-You can leave all of the requested inputs blank. Then run:
+The requested inputs can be left blank. Then run:
 
 ```
 openssl x509 -req -in elb-cfrouter.csr -signkey elb-cfrouter.key -out elb-cfrouter.pem
 ```
 
-#### stubs/domain.yml
+#### `stubs/domain.yml`
 
 The `domain.yml` should be assigned to the domain that was generated when the [route 53 hosted zone](#aws-requirements) was created.
 
@@ -146,7 +146,6 @@ meta:
 
 Note: These zones could become restricted by AWS. If at some point during the `deploy_aws_cli` script and you see an error
 similar to the following message:
-
 ```
 Value (us-east-1b) for parameter availabilityZone is invalid Subnets can currently only be created in the following availability zones: us-east-1d, us-east-1b, us-east-1a, us-east-1e
 ```
@@ -201,7 +200,7 @@ To create the AWS environment and two VMs essential to the Cloud Foundry infrast
 you need to run `./deploy_aws_environment create DEPLOYMENT_DIR` **from this repository**.
 This may take up to 30 minutes.
 
-The `./deploy_aws_environment` script has three possible actions.
+The `./deploy_aws_environment` script has three possible actions:
   * `create` spins up an AWS Cloud Formation Stack based off of the stubs filled out above
   * run `update` if you change your stubs under `DEPLOYMENT_DIR/stubs/infrastructure` or there was an update to this repository
   * `skip` will upgrade your bosh director, but will not touch the AWS environment
@@ -235,21 +234,19 @@ refered to as `CF_RELEASE_DIR`.
 #### Generate Cloud Foundry Manifest
 
 To deploy Cloud Foundry, you need a stub similar to the one from the [Cloud Foundry Documentation](http://docs.cloudfoundry.org/deploying/aws/cf-stub.html).
-The generated stub `DEPLOYMENT_DIR/stubs/cf/aws.yml` already has a number of these properties filled out for you. However, the generated stub has some
-additional properties that can be used to deploy Cloud Foundry across 3 zones instead of 2, as shown in the Cloud Foundry Docs.
-Don't worry about that extra information, just follow the Cloud Foundry
+The generated stub `DEPLOYMENT_DIR/stubs/cf/aws.yml` already has a number of these properties filled out for you. However, the generated stub has some additional properties that can be used to deploy Cloud Foundry across 3 zones instead of 2, as shown in the Cloud Foundry Docs. Don't worry about that extra information, just follow the Cloud Foundry
 [editing instructions](http://docs.cloudfoundry.org/deploying/aws/cf-stub.html#editing) and fill in any properties that aren't already specified.
 
-Cloud Foundry Documention manifest generation doesn't create some VMs and properties that Diego depends on It also includes some unnecessary VMs and properties that Diego doesn't need. To correct this, the provided cf stub `./stubs/cf/diego.yml` is used when generating the Cloud Foundry manifest.
+Cloud Foundry Documention manifest generation doesn't create some VMs and properties that Diego depends on. It also includes some unnecessary VMs and properties that Diego doesn't need. To correct this, the provided cf stub `./stubs/cf/diego.yml` is used when generating the Cloud Foundry manifest.
 
 After following the instructions to generate a `cf/aws.yml` stub and downloading the cf-release directory, run
 the following command **inside this repository** to generate the Cloud Foundry manifest:
 ```
 $CF_RELEASE_DIR/scripts/generate_deployment_manifest aws \
-$DEPLOYMENT_DIR/stubs/director-uuid.yml \
-./stubs/cf/diego.yml \
-$DEPLOYMENT_DIR/stubs/cf/aws.yml \
-> $DEPLOYMENT_DIR/deployments/cf.yml
+   $DEPLOYMENT_DIR/stubs/director-uuid.yml \
+   ./stubs/cf/diego.yml \
+   $DEPLOYMENT_DIR/stubs/cf/aws.yml \
+   > $DEPLOYMENT_DIR/deployments/cf.yml
 ```
 
 ### Finally actually deploy
@@ -258,7 +255,7 @@ Login to BOSH with the following command:
 ```
 bosh login
 ```
-When prompted for the username and password, they are the credentials set in the `DEPLOYMENT_DIR/stubs/bosh-init/users.yml` stub.
+When prompted for the username and password, provide the credentials set in the `DEPLOYMENT_DIR/stubs/bosh-init/users.yml` stub.
 
 Set the deployment manifest with the following command:
 ```
@@ -266,7 +263,7 @@ bosh deployment $DEPLOYMENT_DIR/deployments/cf.yml
 ```
 
 From here, follow the documentation on [deploying a Cloud Foundry with BOSH](http://docs.cloudfoundry.org/deploying/common/deploy.html). Note that the deployment
-can take up to 30 minutes.
+can take up to 30 minutes. Be patient; it's worth it.
 
 ### Deploying Diego
 
