@@ -8,6 +8,7 @@ inputs:
   - name: provisioned-bosh-lite
   - name: diego-release-tarball
   - name: cf-release-tarball
+  - name: created-cf-release
   - name: garden-linux-release-tarball
   - name: etcd-release-tarball
 
