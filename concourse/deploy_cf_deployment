@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -ex
+
+export BOSH_TARGET=$TARGET
+export BOSH_USER=$USERNAME
+export BOSH_PASSWORD=$PASSWORD
+
+echo "$CA_CERT" > /tmp/certificate
+
+ls -l bosh-stemcell
+
+bosh -n -e $BOSH_TARGET --ca-cert=/tmp/certificate \
+     upload-stemcell bosh-stemcell/*.tgz
+
+bosh -n -d $DEPLOYMENT_NAME -e $BOSH_TARGET deploy \
+     --ca-cert=/tmp/certificate \
+     cf-deployment/cf-deployment.yml
