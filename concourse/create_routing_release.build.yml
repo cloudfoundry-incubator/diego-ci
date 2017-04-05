@@ -1,0 +1,16 @@
+---
+platform: linux
+
+image: docker:///cloudfoundry/diego-pipeline
+
+inputs:
+  - name: routing-release
+  - name: diego-ci
+  - name: version
+
+outputs:
+  - name: created-routing-release
+
+run:
+  path: diego-ci/concourse/create_routing_release
+

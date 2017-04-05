@@ -1,0 +1,23 @@
+---
+platform: linux
+
+image: docker:///cloudfoundry/diego-pipeline
+
+inputs:
+  - name: deployments-diego
+  - name: diego-ci
+  - name: generated-manifest
+
+outputs:
+  - name: errand-results
+
+params:
+  BOSH_USER: ~
+  BOSH_PASSWORD: ~
+  BOSH_TARGET: ~
+  MANIFEST: ~
+  CONFIG: ~
+
+run:
+  path: diego-ci/concourse/run_rats
+
