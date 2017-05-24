@@ -4,6 +4,9 @@ require 'yaml'
 cf_manifest_path = ARGV[0]
 manifest = YAML.load_file cf_manifest_path
 
+resource_pool = {"cloud_properties" => { "instance_type" => "m3.large", "ephemeral_disk" => { "size" => "102_400", "type" => "gp2" }, "availability_zone" => "us-east-1a" }, "name" => "runner_z1" }
+manifest["resource_pools"].push(resource_pool)
+
 disk_pool = {"cloud_properties" => { "type" => "io1", "iops" => 2000 }, "disk_size" => 100000, "name" => "postgres-persistent-disk"}
 manifest["disk_pools"] = [disk_pool]
 
