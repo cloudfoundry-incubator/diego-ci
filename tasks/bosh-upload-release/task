@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -ex
+
+source cf-deployment-concourse-tasks/shared-functions
+
+setup_bosh_env_vars
+
+bosh upload-release --fix ./release/release.tgz
+

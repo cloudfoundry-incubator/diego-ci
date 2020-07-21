@@ -1,0 +1,1083 @@
+groups:
+- name: diego
+  jobs:
+  - bump-garden
+  - simulate-auctions
+  - check-for-windows-drift
+  - check-proto-files
+  - check-diego-release
+  - units-common
+  - units-mysql
+  - units-postgres
+  - units-windows
+  - validate-garden-version
+  - inigo-mysql
+  - inigo-postgres
+  - inigo-windows
+  - candidate
+  - validate-envoy-version
+  - deploy-cf-deployment
+  - test-evacuation
+  - smoke-tests
+  - vizzini
+  - export-release
+  - cats-windows
+  - claim-env
+  - unclaim-env
+  - cats-linux
+  - deliver
+  - shipit
+  - github-release
+  - merge-master-into-develop
+- name: version
+  jobs:
+  # - major-bump
+  - minor-bump
+  # - patch-bump
+- name: diego-periodic
+  jobs:
+  - check-expired-test-fixture-certs
+  - update-golang-packages
+  - update-envoy-blob
+- name: manual
+  jobs:
+  - release-candidate-lock
+  - unclaim-env-manual
+- name: with-deployed-cf
+  jobs:
+  - deploy-cf-deployment
+  - test-evacuation
+  - smoke-tests
+  - vizzini
+  - cats-linux
+  - cats-windows
+  - export-release
+
+jobs:
+- name: check-expired-test-fixture-certs
+  plan:
+  - in_parallel:
+    - get: every-30-days
+      trigger: true
+    - get: diego-ci
+    - get: diego-release
+  - task: check
+    file: diego-ci/tasks/check-expiring-certs/task.yml
+    input_mapping:
+      dir: diego-release
+    params:
+      CERT_DIRECTORY: ./dir/src/code.cloudfoundry.org
+
+- name: simulate-auctions
+  public: true
+  plan:
+  - get: diego-release
+    trigger: true
+  - task: build
+    file: diego-release/scripts/ci/run_auction_simulation.build.yml
+    params:
+
+- name: check-for-windows-drift
+  public: true
+  plan:
+  - get: diego-release
+    trigger: true
+  - task: build
+    file: diego-release/scripts/ci/check_for_windows_drift.yml
+
+- name: check-proto-files
+  public: true
+  plan:
+  - get: diego-release
+    trigger: true
+  - task: build
+    file: diego-release/scripts/ci/check_proto_files.build.yml
+
+- name: check-diego-release
+  public: true
+  plan:
+  - get: diego-ci
+  - get: diego-release
+    trigger: true
+  - task: build
+    file: diego-ci/tasks/check-diego-release/task.yml
+
+- name: units-common
+  public: true
+  serial_groups: [units]
+  plan:
+  - get: diego-release
+    trigger: true
+    tags: [units]
+  - task: build
+    file: diego-release/scripts/ci/run_unit.build.yml
+    tags: [units]
+    privileged: true
+    params:
+      SCRIPT: run-unit-tests-no-backing-store
+      ECR_TEST_AWS_ACCESS_KEY_ID: {{aws-ecr-access-key-id}}
+      ECR_TEST_AWS_SECRET_ACCESS_KEY: {{aws-ecr-secret-access-key}}
+      ECR_TEST_REPO_URI: {{aws-ecr-repo-uri}}
+
+- name: update-envoy-blob
+  serial: true
+  plan:
+  - in_parallel:
+    - get: diego-ci
+    - get: diego-release
+    - get: envoyproxy-image
+      trigger: true
+  - task: create-envoy-blob
+    file: diego-ci/tasks/create-envoy-blob/task.yml
+  - task: update-envoy-blob
+    file: diego-ci/tasks/update-envoy-blob/task.yml
+    params:
+      access_key_id: {{aws-diego-final-release-access-key-id}}
+      secret_access_key: {{aws-diego-final-release-secret-access-key}}
+  - put: diego-release-envoy-bump
+    params:
+      repository: updated-diego-release
+      force: true
+  - task: create-pr
+    file: diego-ci/tasks/create-diego-pr/task.yml
+    params:
+      GITHUB_TOKEN: {{cf-diego-user-github-access-token}}
+      LABEL: "dependencies"
+      BRANCH: "bump-envoy"
+    input_mapping:
+      diego-release: updated-diego-release
+
+- name: update-golang-packages
+  serial: true
+  plan:
+  - in_parallel:
+    - get: diego-ci
+    - get: diego-release
+    - get: golang-release
+      trigger: true
+  - task: update-golang-packages
+    file: diego-ci/tasks/update-golang-packages/task.yml
+    params:
+      access_key_id: {{aws-diego-final-release-access-key-id}}
+      secret_access_key: {{aws-diego-final-release-secret-access-key}}
+  - put: diego-release-golang-bump
+    params:
+      repository: updated-diego-release
+      force: true
+  - task: create-pr
+    file: diego-ci/tasks/create-diego-pr/task.yml
+    params:
+      GITHUB_TOKEN: {{cf-diego-user-github-access-token}}
+      DESCRIPTION: "Bumping the golang blob"
+      LABEL: "dependencies"
+      BRANCH: "bump-golang"
+    input_mapping:
+      diego-release: updated-diego-release
+
+- name: units-mysql
+  public: true
+  serial_groups: [units]
+  plan:
+  - get: diego-release
+    trigger: true
+    tags: [units]
+  - task: build
+    file: diego-release/scripts/ci/run_unit.build.yml
+    privileged: true
+    tags: [units]
+    params:
+      SCRIPT: run-unit-tests-with-backing-store
+      SQL_FLAVOR: mysql
+
+- name: units-postgres
+  public: true
+  serial_groups: [units]
+  plan:
+  - get: diego-release
+    trigger: true
+    tags: [units]
+  - task: build
+    file: diego-release/scripts/ci/run_unit.build.yml
+    tags: [units]
+    privileged: true
+    params:
+      SCRIPT: run-unit-tests-with-backing-store
+      SQL_FLAVOR: postgres
+
+- name: units-windows
+  public: true
+  serial_groups: [units-windows]
+  plan:
+  - get: diego-release
+    trigger: true
+  - task: build
+    file: diego-release/scripts/ci/run_unit_windows.build.yml
+    tags: [units]
+
+- name: inigo-mysql
+  serial_groups: [inigo-mysql]
+  public: true
+  plan:
+  - in_parallel:
+    - get: diego-ci
+      tags: [inigo-mysql]
+    - get: diego-release
+      trigger: true
+      tags: [inigo-mysql]
+    - get: garden-runc-release
+      params: {submodules: none}
+      tags: [inigo-mysql]
+    - get: garden-runc-release-tarball
+      trigger: true
+      tags: [inigo-mysql]
+    - get: routing-release
+      params: { submodules: none }
+      tags: [inigo-mysql]
+    - get: routing-release-tarball
+      tags: [inigo-mysql]
+  - task: garden-runc-release
+    file: diego-ci/tasks/checkout-release/task.yml
+    tags: [inigo-mysql]
+    input_mapping: &garden-inputs
+      release-tarball: garden-runc-release-tarball
+      release-master: garden-runc-release
+    output_mapping: &garden-outputs
+      release-output: garden-runc-release
+  - task: routing-release
+    file: diego-ci/tasks/checkout-release/task.yml
+    tags: [inigo-mysql]
+    input_mapping: &routing-inputs
+      release-tarball: routing-release-tarball
+      release-master: routing-release
+    output_mapping: &routing-outputs
+      release-output: routing-release
+  - task: build
+    privileged: true
+    file: diego-release/scripts/ci/run_inigo_grootfs.build.yml
+    tags: [inigo-mysql]
+    params:
+      DEFAULT_EVENTUALLY_TIMEOUT: 5m
+      SQL_FLAVOR: mysql
+      INIGO_PRIVATE_DOCKER_IMAGE_URI: {{inigo-private-docker-image-uri}}
+      INIGO_PRIVATE_DOCKER_IMAGE_REF: {{inigo-private-docker-image-ref}}
+      INIGO_PRIVATE_DOCKER_IMAGE_ROOTFS_PATH: {{inigo-private-docker-image-rootfs-path}}
+      INIGO_PRIVATE_DOCKER_IMAGE_USERNAME: {{inigo-private-docker-image-username}}
+      INIGO_PRIVATE_DOCKER_IMAGE_PASSWORD: {{inigo-private-docker-image-password}}
+      INIGO_ECR_AWS_ACCESS_KEY_ID: {{inigo-ecr-aws-access-key-id}}
+      INIGO_ECR_AWS_SECRET_ACCESS_KEY: {{inigo-ecr-aws-secret-access-key}}
+      INIGO_ECR_IMAGE_REF: {{inigo-ecr-image-ref}}
+      INIGO_ECR_IMAGE_ROOTFS_PATH: {{inigo-ecr-image-rootfs-path}}
+      INIGO_ECR_IMAGE_URI: {{inigo-ecr-image-uri}}
+
+- name: inigo-postgres
+  serial_groups: [inigo-postgres]
+  public: true
+  plan:
+  - in_parallel:
+    - get: diego-ci
+      tags: [inigo-postgres]
+    - get: diego-release
+      trigger: true
+      tags: [inigo-postgres]
+    - get: garden-runc-release-tarball
+      trigger: true
+      tags: [inigo-postgres]
+    - get: garden-runc-release
+      params: {submodules: none}
+      tags: [inigo-postgres]
+    - get: routing-release
+      params: { submodules: none }
+      tags: [inigo-postgres]
+    - get: routing-release-tarball
+      tags: [inigo-postgres]
+  - task: garden-runc-release
+    file: diego-ci/tasks/checkout-release/task.yml
+    tags: [inigo-postgres]
+    input_mapping: *garden-inputs
+    output_mapping: *garden-outputs
+  - task: routing-release
+    file: diego-ci/tasks/checkout-release/task.yml
+    tags: [inigo-postgres]
+    input_mapping: *routing-inputs
+    output_mapping: *routing-outputs
+  - task: build
+    privileged: true
+    file: diego-release/scripts/ci/run_inigo_grootfs.build.yml
+    tags: [inigo-postgres]
+    params:
+      DEFAULT_EVENTUALLY_TIMEOUT: 5m
+      SQL_FLAVOR: postgres
+      INIGO_PRIVATE_DOCKER_IMAGE_URI: {{inigo-private-docker-image-uri}}
+      INIGO_PRIVATE_DOCKER_IMAGE_REF: {{inigo-private-docker-image-ref}}
+      INIGO_PRIVATE_DOCKER_IMAGE_ROOTFS_PATH: {{inigo-private-docker-image-rootfs-path}}
+      INIGO_PRIVATE_DOCKER_IMAGE_USERNAME: {{inigo-private-docker-image-username}}
+      INIGO_PRIVATE_DOCKER_IMAGE_PASSWORD: {{inigo-private-docker-image-password}}
+      INIGO_ECR_AWS_ACCESS_KEY_ID: {{inigo-ecr-aws-access-key-id}}
+      INIGO_ECR_AWS_SECRET_ACCESS_KEY: {{inigo-ecr-aws-secret-access-key}}
+      INIGO_ECR_IMAGE_REF: {{inigo-ecr-image-ref}}
+      INIGO_ECR_IMAGE_ROOTFS_PATH: {{inigo-ecr-image-rootfs-path}}
+      INIGO_ECR_IMAGE_URI: {{inigo-ecr-image-uri}}
+
+- name: inigo-windows
+  serial: true
+  public: true
+  plan:
+  - in_parallel:
+    - get: diego-ci
+    - get: diego-release
+      trigger: true
+    - get: envoy-nginx-release
+    - get: garden-runc-release
+      params: {submodules: none}
+    - get: garden-runc-release-tarball
+      trigger: true
+    - get: routing-release
+      params: { submodules: none }
+    - get: routing-release-tarball
+    - get: winc-release
+      trigger: true
+  - task: garden-runc-release
+    file: diego-ci/tasks/checkout-release/task.yml
+    tags: [inigo-postgres]
+    input_mapping: *garden-inputs
+    output_mapping: *garden-outputs
+  - task: routing-release
+    file: diego-ci/tasks/checkout-release/task.yml
+    tags: [inigo-postgres]
+    input_mapping: *routing-inputs
+    output_mapping: *routing-outputs
+  - task: build
+    privileged: true
+    file: diego-release/scripts/ci/run_inigo_windows.build.yml
+    tags: [inigo-mysql]
+    params:
+      DEFAULT_EVENTUALLY_TIMEOUT: 5m
+      SQL_FLAVOR: mysql
+      GARDEN_ROOTFS: "docker:///cloudfoundry/windows2016fs:2019.0.54"
+      SKIP_PACKAGES: "volman,executor,certauthority"
+      GINKGO_PARALLEL: "false"
+      FLAKE_ATTEMPTS: 2
+
+- name: validate-garden-version
+  public: true
+  plan:
+  - in_parallel:
+    - get: diego-ci
+    - get: diego-release
+      trigger: true
+    - get: garden-runc-release
+      trigger: true
+      params:
+        submodules:
+        - src/garden
+        - src/guardian
+  - task: compare-garden-releases
+    file: diego-ci/tasks/compare-garden-releases/task.yml
+
+# Trigger on releases to garden-runc-release. We could use concourse resource for that.
+# Bump garden-runc-release
+# Bump guardian to match the version used in gardenc-runc-release
+# Update the package specs
+# Commit the changes
+- name: bump-garden
+  public: true
+  plan:
+  - in_parallel:
+    - get: diego-ci
+    - get: diego-release
+    - get: garden-runc-release
+    - get: garden-runc-release-github-release
+      trigger: true
+      params:
+        include_source_tarball: true
+  - task: bump-submodule
+    file: diego-ci/tasks/bump-garden-submodules/task.yml
+  - put: diego-release
+    params:
+      repository: bumped-diego-release
+      rebase: true
+    get_params:
+      submodules: none
+
+- name: validate-envoy-version
+  public: true
+  plan:
+  - in_parallel:
+    - get: diego-ci
+    - get: diego-release
+      trigger: true
+  - task: compare-envoy-versions
+    file: diego-ci/tasks/compare-envoy-versions/task.yml
+
+# - name: patch-bump
+#   serial_groups: [version]
+#   plan:
+#   - get: version
+#     passed: [shipit]
+#     params:
+#       bump: patch
+#       pre: rc
+#     trigger: true
+#   - put: version
+#     params:
+#       file: version/number
+
+- name: minor-bump
+  serial_groups: [version]
+  plan:
+  - get: version
+    params:
+      bump: minor
+      pre: rc
+  - put: version
+    params:
+      file: version/number
+
+# - name: major-bump
+#   serial_groups: [version]
+#   plan:
+#   - get: version
+#     params:
+#       bump: major
+#       pre: rc
+#   - put: version
+#     params:
+#       file: version/number
+
+- name: candidate
+  serial: true
+  public: true
+  plan:
+  - put: candidate-lock
+    params: {acquire: true}
+  - in_parallel:
+    - get: diego-release
+      passed:
+      - check-diego-release
+      - check-for-windows-drift
+      - check-proto-files
+      - units-common
+      - units-mysql
+      - units-postgres
+      - units-windows
+      - inigo-mysql
+      - inigo-windows
+      - inigo-postgres
+      - validate-envoy-version
+      params: {submodules: none}
+      trigger: true
+    - get: diego-ci
+
+- name: claim-env
+  plan:
+  - get: candidate-lock
+    passed: [candidate]
+    trigger: true
+  - put: toolsmiths-env
+    params:
+      action: claim
+    tags: [toolsmiths-shared-vsphere]
+
+- name: deploy-cf-deployment
+  serial_groups: [cf-deployment]
+  plan:
+  - get: candidate-lock
+    passed: [claim-env]
+    trigger: true
+  - in_parallel:
+    - get: cf-deployment
+    - get: cf-deployment-concourse-tasks
+    - get: diego-ci
+    - get: diego-release
+      passed: [candidate]
+    - get: diego-release-tarball
+    - get: garden-runc-release-tarball
+    - get: loggregator-agent-release-tarball
+    - get: metrics-discovery-release-tarball
+    - get: toolsmiths-env
+      passed: [claim-env]
+      tags: [toolsmiths-shared-vsphere]
+  - task: aggregate-ops-files
+    file: diego-ci/tasks/aggregate-files-with-extension/task.yml
+    input_mapping:
+      aggregate-input-1: cf-deployment
+      aggregate-input-2: diego-release
+      aggregate-input-3: diego-ci
+    params:
+      GLOB: |
+        aggregate-input-1/operations/use-compiled-releases.yml
+        aggregate-input-1/operations/experimental/use-compiled-releases-windows.yml
+        aggregate-input-1/operations/scale-database-cluster.yml
+        aggregate-input-1/operations/windows2019-cell.yml
+        aggregate-input-1/operations/use-online-windows2019fs.yml
+        aggregate-input-2/operations/add-vizzini-errand.yml
+        aggregate-input-2/operations/enable-vizzini-delcarative-healthcheck-tests.yml
+        aggregate-input-2/operations/enable-vizzini-container-proxy-tests.yml
+        aggregate-input-2/operations/enable-vizzini-container-proxy-tests-mutual-tls.yml
+        aggregate-input-3/ops-files/disable-vizzini-privileged-containers-tests.yml
+        aggregate-input-3/ops-files/set-rep-max-idle-conns.yml
+        aggregate-input-3/ops-files/resize-grootfs-store.yml
+        aggregate-input-3/ops-files/stream-vizzini-output.yml
+        aggregate-input-3/ops-files/turn-on-debug-mode-on-route-emitter.yml
+        aggregate-input-3/ops-files/set-windows2019-cell-max-idle-conns.yml
+        aggregate-input-3/ops-files/scale-to-HA.yml
+        aggregate-input-3/ops-files/use-latest-release.yml
+
+  - task: upload-stemcells
+    file: cf-deployment-concourse-tasks/bosh-upload-stemcells/task.yml
+    input_mapping: &deployment_input_mappings
+      release: diego-release
+      vars-files: diego-ci
+      ops-files: aggregated-dir
+    params:
+      OPS_FILES: |
+        windows2019-cell.yml
+  - in_parallel:
+      limit: 2
+      steps:
+      - task: diego-with-source
+        file: diego-ci/tasks/bosh-upload-release/task.yml
+        input_mapping:
+          << : *deployment_input_mappings
+          release: diego-release-tarball
+      - task: garden-runc-with-source
+        file: diego-ci/tasks/bosh-upload-release/task.yml
+        input_mapping:
+          << : *deployment_input_mappings
+          release: garden-runc-release-tarball
+      - task: loggregator-agent-with-source
+        file: diego-ci/tasks/bosh-upload-release/task.yml
+        input_mapping:
+          << : *deployment_input_mappings
+          release: loggregator-agent-release-tarball
+      - task: metrics-discovery-with-source
+        file: diego-ci/tasks/bosh-upload-release/task.yml
+        input_mapping:
+          << : *deployment_input_mappings
+          release: metrics-discovery-release-tarball
+  - task: deploy-cf-deployment
+    file: cf-deployment-concourse-tasks/bosh-deploy/task.yml
+    input_mapping: *deployment_input_mappings
+    params:
+      VARS_FILES: &vars_files |
+        vars-files/grace-config-vars.yml
+      OPS_FILES: &ops_files |
+        use-compiled-releases.yml
+        use-compiled-releases-windows.yml
+        scale-database-cluster.yml
+        windows2019-cell.yml
+        use-online-windows2019fs.yml
+        add-vizzini-errand.yml
+        enable-vizzini-delcarative-healthcheck-tests.yml
+        enable-vizzini-container-proxy-tests.yml
+        enable-vizzini-container-proxy-tests-mutual-tls.yml
+        disable-vizzini-privileged-containers-tests.yml
+        set-rep-max-idle-conns.yml
+        resize-grootfs-store.yml
+        stream-vizzini-output.yml
+        turn-on-debug-mode-on-route-emitter.yml
+        set-windows2019-cell-max-idle-conns.yml
+        scale-to-HA.yml
+        use-latest-release.yml
+
+  - task: deploy-develop-diego-release
+    file: cf-deployment-concourse-tasks/bosh-deploy-with-created-release/task.yml
+    input_mapping: *deployment_input_mappings
+    params:
+      VARS_FILES: *vars_files
+      DEPLOY_WITH_UPTIME_MEASUREMENTS: true
+      FAIL_ON_DOWNTIME: true
+      MEASURE_SYSLOG_AVAILABILITY: false
+      TCP_DOMAIN: " "
+      AVAILABLE_PORT: -1
+      APP_PUSHABILITY_THRESHOLD: 1
+      HTTP_AVAILABILITY_THRESHOLD: 0
+      RECENT_LOGS_THRESHOLD: 100
+      STREAMING_LOGS_THRESHOLD: 100
+      APP_SYSLOG_AVAILABILITY_THRESHOLD: 0
+      USE_SINGLE_APP_INSTANCE: true
+      OPS_FILES: *ops_files
+  - task: enable-docker
+    file: cf-deployment-concourse-tasks/set-feature-flags/task.yml
+    input_mapping: *deployment_input_mappings
+    params:
+      ENABLED_FEATURE_FLAGS: diego_docker
+
+- name: test-evacuation
+  serial_groups: [cf-deployment]
+  plan:
+  - get: candidate-lock
+    passed: [deploy-cf-deployment]
+    trigger: true
+  - in_parallel:
+    - get: cf-deployment
+      passed: [deploy-cf-deployment]
+    - get: cf-deployment-concourse-tasks
+    - get: diego-ci
+    - get: diego-release
+      passed: [deploy-cf-deployment]
+    - get: toolsmiths-env
+      passed: [deploy-cf-deployment]
+      tags: [toolsmiths-shared-vsphere]
+  - task: restart-diego-cells
+    file: diego-ci/tasks/bosh-restart/task.yml
+    params:
+      DEPLOY_WITH_UPTIME_MEASUREMENTS: true
+      FAIL_ON_DOWNTIME: true
+      MEASURE_SYSLOG_AVAILABILITY: false
+      TCP_DOMAIN: " "
+      AVAILABLE_PORT: -1
+      APP_PUSHABILITY_THRESHOLD: 0
+      HTTP_AVAILABILITY_THRESHOLD: 0
+      RECENT_LOGS_THRESHOLD: 100
+      STREAMING_LOGS_THRESHOLD: 100
+      APP_SYSLOG_AVAILABILITY_THRESHOLD: 0
+      USE_SINGLE_APP_INSTANCE: true
+      BOSH_RESTART_ARGS: diego-cell
+
+- name: smoke-tests
+  serial_groups: [cf-deployment]
+  plan:
+  - get: candidate-lock
+    passed: [deploy-cf-deployment]
+    trigger: true
+  - in_parallel:
+    - get: cf-deployment-concourse-tasks
+    - get: toolsmiths-env
+      passed: [deploy-cf-deployment]
+      tags: [toolsmiths-shared-vsphere]
+  - task: run-smoke-tests-errand
+    file: cf-deployment-concourse-tasks/run-errand/task.yml
+    params:
+      ERRAND_NAME: smoke-tests
+
+- name: vizzini
+  serial_groups: [cf-deployment]
+  plan:
+  - get: candidate-lock
+    passed: [deploy-cf-deployment]
+    trigger: true
+  - in_parallel:
+    - get: cf-deployment-concourse-tasks
+    - get: toolsmiths-env
+      passed: [deploy-cf-deployment]
+      tags: [toolsmiths-shared-vsphere]
+  - task: run-vizzini-errand
+    file: cf-deployment-concourse-tasks/run-errand/task.yml
+    params:
+      ERRAND_NAME: vizzini
+      KEEP_ALIVE: true
+
+- name: cats-linux
+  serial_groups: [cf-deployment]
+  plan:
+  - get: candidate-lock
+    passed: [deploy-cf-deployment]
+    trigger: true
+  - in_parallel:
+    - get: cf-acceptance-tests
+    - get: cf-deployment-concourse-tasks
+    - get: diego-ci
+    - get: toolsmiths-env
+      passed: [deploy-cf-deployment]
+      tags: [toolsmiths-shared-vsphere]
+  - task: update-integration-configs
+    input_mapping:
+      integration-configs: diego-ci
+    file: cf-deployment-concourse-tasks/update-integration-configs/task.yml
+    params:
+      CATS_INTEGRATION_CONFIG_FILE: templates/integration-config-linux.json
+      PRIVATE_DOCKER_REGISTRY_IMAGE: {{inigo-private-docker-image-ref}}
+      PRIVATE_DOCKER_REGISTRY_USERNAME: {{inigo-private-docker-image-username}}
+      PRIVATE_DOCKER_REGISTRY_PASSWORD: {{inigo-private-docker-image-password}}
+  - task: run-cats
+    file: cf-deployment-concourse-tasks/run-cats/task.yml
+    input_mapping:
+      integration-config: updated-integration-configs
+    params:
+      CONFIG_FILE_PATH: templates/integration-config-linux.json
+
+- name: cats-windows
+  serial_groups: [cf-deployment]
+  plan:
+  - get: candidate-lock
+    passed: [deploy-cf-deployment]
+    trigger: true
+  - in_parallel:
+    - get: cf-acceptance-tests
+    - get: cf-deployment-concourse-tasks
+    - get: diego-ci
+    - get: diego-release
+      params: {submodules: none}
+      passed: [deploy-cf-deployment]
+    - get: toolsmiths-env
+      passed: [deploy-cf-deployment]
+      tags: [toolsmiths-shared-vsphere]
+  - task: update-integration-configs
+    input_mapping:
+      integration-configs: diego-ci
+    file: cf-deployment-concourse-tasks/update-integration-configs/task.yml
+    params:
+      CATS_INTEGRATION_CONFIG_FILE: templates/integration-config-windows.json
+      WATS_INTEGRATION_CONFIG_FILE: templates/integration-config-windows.json
+  - task: run-cats
+    file: cf-deployment-concourse-tasks/run-cats/task.yml
+    input_mapping:
+      integration-config: updated-integration-configs
+    params:
+      CONFIG_FILE_PATH: templates/integration-config-windows.json
+      SKIP_REGEXP: "Syslog drain"
+      NODES: 4
+
+- name: export-release
+  serial_groups: [cf-deployment]
+  plan:
+    - get: candidate-lock
+      passed: [deploy-cf-deployment]
+      trigger: true
+    - in_parallel:
+      - get: cf-deployment-concourse-tasks
+      - get: diego-ci
+      - get: toolsmiths-env
+        passed: [deploy-cf-deployment]
+        tags: [toolsmiths-shared-vsphere]
+    - task: export-release
+      file: diego-ci/tasks/bosh-export-release/task.yml
+      params:
+        RELEASE_NAME: diego
+
+- name: deliver
+  plan:
+  - get: candidate-lock
+    passed:
+    - candidate
+    - cats-linux
+    - cats-windows
+    - vizzini
+    - test-evacuation
+    - export-release
+    trigger: true
+  - in_parallel:
+    - get: diego-release
+      passed: [deploy-cf-deployment]
+      params: {submodules: none}
+  - put: tracker
+    params: {repos: [diego-release]}
+  - put: diego-release-release-candidate
+    params:
+      repository: diego-release/
+  - put: candidate-lock
+    params: {release: candidate-lock}
+
+- name: shipit
+  serial_groups: [version]
+  plan:
+  - in_parallel:
+    - get: diego-ci
+    - get: diego-release
+      passed: [deliver]
+    - get: diego-release-master
+      params: {submodules: none}
+    - get: version
+      params: {bump: final}
+  - task: create-final-release
+    file: diego-ci/tasks/create-final-release/task.yml
+    params:
+      access_key_id: {{aws-diego-final-release-access-key-id}}
+      secret_access_key: {{aws-diego-final-release-secret-access-key}}
+  - put: diego-final-releases
+    params:
+      file: final-release/diego-*.tgz
+  - put: diego-release-master
+    params:
+      repository: final-release/diego-release
+      tag: version/number
+      tag_prefix: v
+  - put: version
+    params: {file: version/number}
+
+- name: github-release
+  plan:
+  - in_parallel:
+    - get: diego-ci
+    - get: diego-final-releases
+      passed: [shipit]
+      trigger: true
+    - get: diego-release-master
+      passed: [shipit]
+      params: {submodules: none}
+      trigger: true
+  - task: generate-release
+    file: diego-ci/tasks/generate-github-release/task.yml
+  - put: github-release
+    params:
+      commitish: generated-release/commitish
+      name: generated-release/name
+      tag: generated-release/version
+      body: generated-release/body
+
+- name: merge-master-into-develop
+  plan:
+    - in_parallel:
+      - get: diego-ci
+      - get: diego-release-master
+        trigger: true
+        passed: [shipit]
+        params:
+          submodules: none
+      - get: diego-release
+        params:
+          submodules: none
+    - task: merge-master-into-develop
+      file: diego-ci/tasks/merge-master-into-develop/task.yml
+    - put: diego-release-mergeback
+      params:
+        repository: merged-master/diego-release
+
+- name: unclaim-env
+  plan:
+  - get: candidate-lock
+    passed:
+    - cats-windows
+    - cats-linux
+    - test-evacuation
+    - vizzini
+    - smoke-tests
+    - export-release
+    trigger: true
+  - get: toolsmiths-env
+    passed:
+    - cats-windows
+    - cats-linux
+    - test-evacuation
+    - vizzini
+    - smoke-tests
+    - export-release
+    tags: [toolsmiths-shared-vsphere]
+  - put: toolsmiths-env
+    params:
+      action: unclaim
+      env_file: toolsmiths-env/metadata
+    tags: [toolsmiths-shared-vsphere]
+
+- name: unclaim-env-manual
+  plan:
+  - get: candidate-lock
+  - get: toolsmiths-env
+    passed: [claim-env]
+    tags: [toolsmiths-shared-vsphere]
+  - put: toolsmiths-env
+    params:
+      action: unclaim
+      env_file: toolsmiths-env/metadata
+    tags: [toolsmiths-shared-vsphere]
+
+- name: release-candidate-lock
+  plan:
+  - get: candidate-lock
+  - put: candidate-lock
+    params: {release: candidate-lock}
+
+
+resources:
+- name: every-30-days
+  type: time
+  source:
+    interval: 720h
+
+- name: candidate-lock
+  type: pool
+  source:
+    uri: git@github.com:cloudfoundry/diego-ci-pools.git
+    branch: master
+    pool: lock
+    private_key: {{cf-diego-private-key}}
+
+- name: diego-ci
+  type: git
+  source:
+    branch: workers-only
+    uri: git@github.com:cloudfoundry/diego-ci
+    private_key: {{cf-diego-private-key}}
+
+- name: cf-acceptance-tests
+  type: git
+  source:
+    branch: release-candidate
+    uri: https://github.com/cloudfoundry/cf-acceptance-tests.git
+
+- name: routing-release
+  type: git
+  source:
+    branch: release
+    uri: https://github.com/cloudfoundry-incubator/routing-release.git
+
+- name: cf-deployment
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/cloudfoundry/cf-deployment.git
+
+- name: diego-release
+  type: git
+  source:
+    branch: develop
+    fetch: ["master"]
+    ignore_paths:
+      - dev_releases
+      - git-hooks
+    uri: git@github.com:cloudfoundry/diego-release.git
+    private_key: {{cf-diego-private-key}}
+
+- name: version
+  type: semver
+  source:
+    access_key_id: {{aws-diego-pipeline-access-key-id}}
+    secret_access_key: {{aws-diego-pipeline-secret-access-key}}
+    bucket: diego-release-versions
+    initial_version: 0.1000.0
+    key: current-version
+    region_name: us-east-1
+
+
+- name: diego-release-golang-bump
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/diego-release.git
+    branch: bump-golang
+    private_key: {{cf-diego-private-key}}
+
+- name: envoyproxy-image
+  type: docker-image
+  source:
+    repository: envoyproxy/envoy
+    tag: v1.14-latest
+
+- name: diego-release-envoy-bump
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/diego-release.git
+    branch: bump-envoy
+    private_key: {{cf-diego-private-key}}
+
+- name: diego-release-master
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/diego-release.git
+    branch: master
+    private_key: {{cf-diego-private-key}}
+
+- name: garden-runc-release
+  type: git
+  source:
+    uri: https://github.com/cloudfoundry/garden-runc-release
+    branch: master
+
+- name: diego-release-mergeback
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/diego-release.git
+    branch: develop
+    private_key: {{cf-diego-private-key}}
+
+- name: winc-release
+  type: git
+  source:
+    uri: https://github.com/cloudfoundry/winc-release
+    branch: master
+
+- name: envoy-nginx-release
+  type: git
+  source:
+    uri: https://github.com/cloudfoundry-incubator/envoy-nginx-release
+    branch: master
+
+- name: golang-release
+  type: git
+  source:
+    branch: master
+    uri: https://github.com/bosh-packages/golang-release
+    tag_filter: v*
+
+- name: cf-deployment-concourse-tasks
+  type: git
+  source:
+    branch: add-private-docker-registry
+    uri: https://github.com/aminjam/cf-deployment-concourse-tasks
+
+- name: diego-release-release-candidate
+  type: git
+  source:
+    uri: git@github.com:cloudfoundry/diego-release.git
+    branch: release-candidate
+    private_key: {{cf-diego-private-key}}
+
+
+- name: github-release
+  type: github-release
+  source:
+    user: cloudfoundry
+    repository: diego-release
+    drafts: true
+    access_token: {{pm-personal-access-token}}
+
+- name: garden-runc-release-github-release
+  type: github-release
+  source:
+    user: cloudfoundry
+    repository: garden-runc-release
+
+- name: routing-release-tarball
+  type: bosh-io-release
+  source:
+    repository: cloudfoundry/routing-release
+
+- name: diego-release-tarball
+  type: bosh-io-release
+  source:
+    repository: cloudfoundry/diego-release
+
+- name: garden-runc-release-tarball
+  type: bosh-io-release
+  source:
+    repository: cloudfoundry/garden-runc-release
+
+- name: loggregator-agent-release-tarball
+  type: bosh-io-release
+  source:
+    repository: cloudfoundry/loggregator-agent-release
+
+- name: metrics-discovery-release-tarball
+  type: bosh-io-release
+  source:
+    repository: cloudfoundry/metrics-discovery-release
+
+- name: diego-final-releases
+  type: s3
+  source:
+    bucket: diego-final-releases
+    regexp: diego-(.*).tgz
+    access_key_id: {{aws-diego-final-release-access-key-id}}
+    secret_access_key: {{aws-diego-final-release-secret-access-key}}
+
+- name: toolsmiths-env
+  type: cf-pool
+  source:
+    api_token: {{toolsmiths-api-token}}
+    hostname: environments.toolsmiths.cf-app.com
+    pool_name: cf-deployment
+  tags:
+  - toolsmiths-shared-vsphere
+
+- name: tracker
+  type: tracker
+  source:
+    tracker_url: https://www.pivotaltracker.com
+    project_id: "1969791"
+    token: {{tracker-token}}
+
+resource_types:
+- name: cf-pool
+  type: docker-image
+  source:
+    repository: cftoolsmiths/toolsmiths-envs-resource

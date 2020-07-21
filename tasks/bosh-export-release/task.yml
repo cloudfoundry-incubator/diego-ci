@@ -1,0 +1,18 @@
+---
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: relintdockerhubpushbot/cf-deployment-concourse-tasks
+
+inputs:
+- name: diego-ci
+- name: toolsmiths-env
+- name: cf-deployment-concourse-tasks
+
+run:
+  path: diego-ci/tasks/bosh-export-release/task
+
+params:
+  RELEASE_NAME: ~

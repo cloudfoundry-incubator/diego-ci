@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -eux
+
+: "${GLOB:?Need to set GLOB}"
+
+for f in ${GLOB}
+do
+  ls $f
+  cp $f ./aggregated-dir/"${PREFIX}$(basename $f)"
+done
+
+tree ./aggregated-dir

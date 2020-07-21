@@ -1,0 +1,38 @@
+---
+- type: remove
+  path: /releases/name=diego/url?
+- type: remove
+  path: /releases/name=diego/file?
+- type: remove
+  path: /releases/name=diego/exported_from?
+
+- type: replace
+  path: /releases/name=garden-runc/version?
+  value: latest
+- type: remove
+  path: /releases/name=garden-runc/url?
+- type: remove
+  path: /releases/name=garden-runc/file?
+- type: remove
+  path: /releases/name=garden-runc/exported_from?
+
+- type: replace
+  path: /releases/name=loggregator-agent/version?
+  value: latest
+- type: remove
+  path: /releases/name=loggregator-agent/url?
+- type: remove
+  path: /releases/name=loggregator-agent/file?
+- type: remove
+  path: /releases/name=loggregator-agent/exported_from?
+
+
+- type: replace
+  path: /releases/name=metrics-discovery/version?
+  value: latest
+- type: remove
+  path: /releases/name=metrics-discovery/url?
+- type: remove
+  path: /releases/name=metrics-discovery/file?
+- type: remove
+  path: /releases/name=metrics-discovery/exported_from?

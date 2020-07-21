@@ -1,0 +1,24 @@
+---
+platform: linux
+
+image_resource:
+  type: registry-image
+  source:
+    repository: cfdiegodocker/ci
+
+inputs:
+- name: diego-ci
+- name: aggregate-input-1
+- name: aggregate-input-2
+  optional: true
+- name: aggregate-input-3
+  optional: true
+outputs:
+- name: aggregated-dir
+
+run:
+  path: diego-ci/tasks/aggregate-files-with-extension/task
+
+params:
+  GLOB: ~
+  PREFIX: ~

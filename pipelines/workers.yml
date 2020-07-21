@@ -1,0 +1,144 @@
+resource_types:
+- name: bbl-state-resource
+  type: docker-image
+  source:
+    repository: cfinfrastructure/bbl-state-resource
+
+- name: bosh-deployment
+  type: docker-image
+  source:
+    repository: cloudfoundry/bosh-deployment-resource
+
+- name: bosh-release
+  type: docker-image
+  source:
+    repository: dpb587/bosh-release-resource
+
+resources:
+- name: bbl-state
+  type: bbl-state-resource
+  source:
+    bucket: lts-workers-bbl-state
+    iaas: gcp
+    gcp_region: us-east1
+    gcp_service_account_key: {{gcp-service-account-key}}
+
+- name: deployment
+  type: bosh-deployment
+  source:
+    skip_check: true
+    deployment: workers
+    provider: gcs
+    config:
+      bucket: lts-workers-vars-store
+      file_name: store.yml
+      json_key: {{gcp-service-account-key}}
+
+- name: diego-ci
+  type: git
+  source:
+    branch: workers-only
+    uri: https://github.com/cloudfoundry/diego-ci
+
+- name: concourse-bosh-deployment
+  type: git
+  source:
+    tag_filter: v*
+    uri: https://github.com/concourse/concourse-bosh-deployment
+
+- name: linux-gcp-stemcell
+  type: bosh-io-stemcell
+  source:
+    name: bosh-google-kvm-ubuntu-xenial-go_agent
+
+- name: windows-gcp-stemcell
+  type: bosh-io-stemcell
+  source:
+    name: bosh-google-kvm-windows2019-go_agent
+
+jobs:
+- name: bbl-up
+  serial: true
+  serial_groups: [ "workers" ]
+  plan:
+  - put: bbl-state
+    params:
+      command: up
+      name: lts-workers-director
+
+- name: deploy
+  serial: true
+  serial_groups: [ "workers" ]
+  plan:
+  - in_parallel:
+    - get: bbl-state
+      passed: [bbl-up]
+      trigger: true
+    - get: concourse-bosh-deployment
+    - get: linux-gcp-stemcell
+    - get: windows-gcp-stemcell
+    - get: diego-ci
+    - task: print-opsfile
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {repository: alpine}
+        outputs:
+        - name: web-link-opsfile
+        run:
+          path: sh
+          args:
+          - -c
+          - |
+            cat <<HERE > $PWD/web-link-opsfile/operations.yml
+            ---
+            - type: replace
+              path: /instance_groups/name=units-windows/jobs/name=worker-windows/properties/tags?/-
+              value: "units"
+            - type: replace
+              path: /instance_groups/name=inigo-mysql-windows/jobs/name=worker-windows/properties/tags?/-
+              value: "inigo-mysql"
+            HERE
+  - put: deployment
+    params:
+      source_file: bbl-state/metadata
+      manifest: diego-ci/manifests/workers.yml
+      cleanup: true
+      stemcells:
+      - linux-gcp-stemcell/stemcell.tgz
+      - windows-gcp-stemcell/stemcell.tgz
+      ops_files:
+      - web-link-opsfile/operations.yml
+      vars:
+        network_name: default
+
+        concourse_version: 6.3.0
+        concourse_sha: 6a75118c6d295476f1619a7befa0d4ff0dc58602
+
+        hush_house_host: "hush-house.pivotal.io:2222"
+        hush_house_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDMU5L98yRnMsQosvfeeC/5qEUy9P13RdO88FLRYTNZIDX7GVW4NRcVqEcysNckoGYPVPeX19I03EXeO4yf71in4F4u9JV+SZaefyeG/6Q9fAO5HbdTdooRPm9yaydDHSwVKx1yPkhm/HIqNvwSBbqipLhjq3zPKCXKDMKYWoPQf/OeERHmW9sTbfbvB1mgKVUGtU8Eox787k8FG/Gq17iHPwxQd8tzsaa/zgUTbjHuOMhSrm8hgL0GYPn8OaS+2Y/FfCiLZWZVeTmLv11F26r1G8I7SSs5+qfn5ZUz3ZfjRcuv077VkeyCVGtxKcjSubMe6HfmmSx0TkwcKjA4vqWh"
+
+
+        worker_vm_type: n1-standard-8
+        worker_ephemeral_disk: 1TB_ephemeral_disk
+
+        windows_worker_os: windows2019
+        windows_worker_os_version: 2019.23
+        windows_worker_gcp_stemcell: https://bosh.io/d/stemcells/bosh-google-kvm-windows2019-go_agent?v=2019.23
+
+        windows_tools_version: "68"
+        windows_tools_sha1: ed0493f349472e8afcb8e8b45a81fd72f53b70df
+
+        windows_utilities_version: 0.14.0
+        windows_utilities_sha1: 7886ffd43b84d4eced06560ba601ce1eb97c6616
+
+        hwc_buildpack_sha1: d768fbe472c75dc7f5f0c208b92c8ae1d2bf7b14
+        hwc_buildpack_version: 3.1.12
+
+        winc_sha1: 476577f4e305b50645774e5b2fcaffa2f2512bca
+        winc_version: 2.2.0
+
+        windowsfs_sha1: be55c719fe83e6dd7737b2ed300a0de7a8f5f90c
+        windowsfs_version: 2.15.0
+

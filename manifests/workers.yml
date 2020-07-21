@@ -1,0 +1,157 @@
+---
+name: workers
+
+releases:
+- name: concourse
+  version: ((concourse_version))
+  sha1: ((concourse_sha))
+  url: https://bosh.io/d/github.com/concourse/concourse-bosh-release?v=((concourse_version))
+- name: "windows-utilities"
+  version: ((windows_utilities_version))
+  url: "https://bosh.io/d/github.com/cloudfoundry-incubator/windows-utilities-release?v=((windows_utilities_version))"
+  sha1: ((windows_utilities_sha1))
+- name: "windows-tools"
+  version: ((windows_tools_version))
+  url: "https://bosh.io/d/github.com/cloudfoundry-incubator/windows-tools-release?v=((windows_tools_version))"
+  sha1: ((windows_tools_sha1))
+
+instance_groups:
+
+- name: units-windows
+  instances: 1
+  vm_type: ((worker_vm_type))
+  vm_extensions: [ ((worker_ephemeral_disk)) ]
+  stemcell: windows
+  networks: [{name: ((network_name))}]
+  azs: [z1]
+  jobs: &windows-worker-jobs
+  - name: enable_ssh
+    release: windows-utilities
+  - name: mingw64
+    release: windows-tools
+  - name: golang-1-windows
+    release: windows-tools
+  - name: bosh-cli-windows
+    release: windows-tools
+  - name: vc_redist
+    release: windows-tools
+  - name: processhacker
+    release: windows-tools
+  - name: mysql
+    release: windows-tools
+    properties:
+      post-install: |+
+        mysql.exe -u root -e "CREATE USER IF NOT EXISTS 'diego'@'localhost' IDENTIFIED WITH mysql_native_password BY 'diego_password'; GRANT ALL PRIVILEGES ON *.* TO 'diego'@'localhost';"
+        # create the concourse work dir
+        If (!(test-path "c:\c")) {
+          New-Item -ItemType Directory -Force -Path "c:\c"
+        }
+        If (!(test-path "c:\consul")) {
+          New-Item -ItemType Directory -Force -Path "c:\consul"
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Invoke-WebRequest -Uri  "https://releases.hashicorp.com/consul/0.8.3/consul_0.8.3_windows_amd64.zip" -OutFile "c:\consul\consul.zip"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::ExtractToDirectory("c:\consul\consul.zip", "c:\consul")
+          [Environment]::SetEnvironmentVariable("PATH", [environment]::GetEnvironmentVariable("PATH","Machine")+";c:\consul", "Machine")
+        }
+  - name: worker-windows
+    release: concourse
+    properties:
+      drain_timeout: 10m
+      team: diego
+      tags: []
+      worker_gateway:
+        worker_key: ((worker_key))
+        hosts:
+        - ((hush_house_host))
+        host_public_key: ((hush_house_public_key))
+
+- name: units-linux
+  instances: 1
+  vm_type: ((worker_vm_type))
+  vm_extensions: [ ((worker_ephemeral_disk)) ]
+  stemcell: linux
+  networks: [{name: ((network_name))}]
+  azs: [z1]
+  jobs:
+  - release: concourse
+    name: worker
+    properties:
+      drain_timeout: 10m
+      team: diego
+      tags: [ "units" ]
+      worker_gateway:
+        worker_key: ((worker_key))
+        hosts:
+        - ((hush_house_host))
+        host_public_key: ((hush_house_public_key))
+
+- name: inigo-mysql-windows
+  instances: 1
+  vm_type: ((worker_vm_type))
+  vm_extensions: [ ((worker_ephemeral_disk)) ]
+  stemcell: windows
+  networks: [{name: ((network_name))}]
+  azs: [z1]
+  jobs: *windows-worker-jobs
+
+- name: inigo-mysql-linux
+  instances: 1
+  vm_type: ((worker_vm_type))
+  vm_extensions: [((worker_ephemeral_disk))]
+  stemcell: linux
+  networks: [{name: ((network_name))}]
+  azs: [z1]
+  jobs:
+  - release: concourse
+    name: worker
+    properties:
+      drain_timeout: 10m
+      team: diego
+      tags: [ "inigo-mysql" ]
+      worker_gateway:
+        worker_key: ((worker_key))
+        hosts:
+        - ((hush_house_host))
+        host_public_key: ((hush_house_public_key))
+
+- name: inigo-postgres-linux
+  instances: 1
+  vm_type: ((worker_vm_type))
+  vm_extensions: [((worker_ephemeral_disk))]
+  stemcell: linux
+  networks: [{name: ((network_name))}]
+  azs: [z1]
+  jobs:
+  - release: concourse
+    name: worker
+    properties:
+      drain_timeout: 10m
+      team: diego
+      tags: [ "inigo-postgres" ]
+      worker_gateway:
+        worker_key: ((worker_key))
+        hosts:
+        - ((hush_house_host))
+        host_public_key: ((hush_house_public_key))
+
+variables:
+- name: worker_key
+  type: ssh
+
+stemcells:
+- os: ((windows_worker_os))
+  version: ((windows_worker_os_version))
+  alias: windows
+- os: ubuntu-xenial
+  version: latest
+  alias: linux
+
+update:
+  canaries: 1
+  max_in_flight: 3
+  serial: false
+  canary_watch_time: 1000-60000
+  update_watch_time: 1000-60000
+
+addons: []

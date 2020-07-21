@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+set -ex
+
+: ${RELEASE_NAME:?must be provided}
+
+export BOSH_DEPLOYMENT=${BOSH_DEPLOYMENT:-cf}
+
+source cf-deployment-concourse-tasks/shared-functions
+
+setup_bosh_env_vars
+
+STEMCELL_NAME_AND_VERSION=$( bosh stemcells --json | jq -r '.Tables[0].Rows[] | .os+"/"+.version' | grep ubuntu | grep '\*' | head -1 | tr -d "*")
+RELEASE_VERSION=$(bosh deployment -d cf --json | jq -r .Tables[0].Rows[0].release_s | grep ${RELEASE_NAME} | cut -d'/' -f2)
+
+bosh export-release ${RELEASE_NAME}/${RELEASE_VERSION} ${STEMCELL_NAME_AND_VERSION}

@@ -1,0 +1,22 @@
+---
+platform: linux
+
+inputs:
+- name: diego-ci
+- name: diego-release
+- name: pr-message
+
+image_resource:
+  type: docker-image
+  source:
+    repository: cloudfoundry/diego-pipeline
+
+params:
+  GITHUB_TOKEN: ~
+  LABEL: ~
+  TITLE: ~
+  DESCRIPTION: ~
+  BRANCH: ~
+
+run:
+  path: diego-ci/tasks/create-diego-pr/task

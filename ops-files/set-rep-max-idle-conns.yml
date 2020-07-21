@@ -1,0 +1,4 @@
+---
+- type: replace
+  path: /instance_groups/name=diego-cell/jobs/name=rep/properties/diego/rep?/bbs/max_idle_conns_per_host
+  value: 250

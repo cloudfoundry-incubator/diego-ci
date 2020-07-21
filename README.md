@@ -3,15 +3,22 @@
 Scripts and tools to run Diego's CI builds on [Concourse CI](https://concourse-ci.org).
 
 ## What's in here
-This repo contains only Concourse scripts, build task definitions, and pipeline definitions.
+This repo contains:
 
-For environment configuration, see the [deployments-diego](https://github.com/cloudfoundry/deployments-diego) repo. Descriptions of the differences between environments can also be found there.
+- `manifests`: to deploy concourse workers to https://hush-house.pivotal.io
+- `ops-files`: to update cf-deployment borrowed from toolsmiths
+- `pipelines`: to create
+  [main](https://hush-house.pivotal.io/teams/diego/pipelines/) and
+  [docker](https://hush-house.pivotal.io/teams/diego/pipelines/docker) pipelines
+- `scripts`: to set/update pipelines
+- `tasks`: set of tasks used to supply diego & docker pipelines
+- `templates`: integration-config templates used for running CATS
+- `vars-files`: list of vars files used for deploy
 
 ## What do these tests do?
 The tests for several sections of the pipeline, along with brief descriptions of what they test can be found in the following places. Some of these are submoduled into diego-release and others are not. 
 
 - [cf-acceptance-tests](https://github.com/cloudfoundry/cf-acceptance-tests) (CATS)
-- [diego-upgrade-stability-tests](https://github.com/cloudfoundry/diego-upgrade-stability-tests) (DUSTS) - submoduled into diego-release
 - [smoke-tests](https://github.com/cloudfoundry/cf-smoke-tests)
 - [inigo](https://github.com/cloudfoundry/inigo) - submoduled into diego-release
 - [vizzini](https://github.com/cloudfoundry/vizzini) - submoduled into diego-release
